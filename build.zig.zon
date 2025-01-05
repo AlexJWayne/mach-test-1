@@ -1,0 +1,22 @@
+.{
+    .name = "mt1",
+    .version = "0.0.0",
+    .dependencies = .{
+        .mach = .{
+            .url = "https://pkg.machengine.org/mach/1d01c915368b0c128ad1fce6123e55c6cc6ded9e.tar.gz",
+            .hash = "122090ee3b387a3906b462314c9c576af2a2bc7b9e15ee81d6556690a46127a1a8e5",
+        },
+        .zigimg = .{
+            .url = "https://github.com/zigimg/zigimg/archive/48bfe6d413a5b3723a7bcf36f1fabbba30efef68.tar.gz",
+            .hash = "12201b874ac217853e59f55477b96cb7a66d43a5930ed9b4f0cfc7113efc8f5a6449",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        // For example...
+        //"LICENSE",
+        //"README.md",
+    },
+}
