@@ -18,7 +18,13 @@ const App = @This();
 
 pub const mach_module = .app;
 
-pub const mach_systems = .{ .main, .init, .tick, .deinit };
+pub const mach_systems = .{
+    .main, //
+    .init,
+    .tick,
+    .updatePlayer,
+    .deinit,
+};
 
 pub const main = mach.schedule(.{
     .{ mach.Core, .init },
@@ -32,6 +38,7 @@ timer: mach.time.Timer,
 spawn_timer: mach.time.Timer,
 fps_timer: mach.time.Timer,
 rand: std.Random.DefaultPrng,
+delta_time: f32 = 0,
 
 frame_count: usize = 0,
 sprites: usize = 0,
@@ -65,6 +72,7 @@ pub fn init(
         .spawn_timer = try mach.time.Timer.start(),
         .fps_timer = try mach.time.Timer.start(),
         .rand = std.Random.DefaultPrng.init(1337),
+        .delta_time = 0,
     };
 }
 
@@ -96,18 +104,22 @@ fn setupPipeline(
 pub fn tick(
     core: *mach.Core,
     app: *App,
+    app_mod: mach.Mod(App),
     sprite: *gfx.Sprite,
     sprite_mod: mach.Mod(gfx.Sprite),
 ) !void {
-    const delta_time = app.timer.lap();
+    app.delta_time = app.timer.lap();
 
+    // TODO: These should be systems?
     try handleEvents(core, app, sprite);
 
     try spawnSprites(app, sprite);
-    try updatePlayer(app, sprite, delta_time);
+    // Pass control to our App.zig module.
+    app_mod.run(.updatePlayer);
+    // try updatePlayer(app, sprite);
     try updateSprites(app, sprite);
 
-    render(core, sprite, sprite_mod, app, delta_time);
+    render(core, sprite, sprite_mod, app);
 }
 
 fn handleEvents(
@@ -158,11 +170,11 @@ fn handleKeyInput(app: *App, event: mach.Core.Event) void {
     app.spawning = spawning;
 }
 
-fn updatePlayer(
+pub fn updatePlayer(
     app: *App,
     sprite: *gfx.Sprite,
-    delta_time: f32,
 ) !void {
+    const delta_time = app.delta_time;
     var direction = app.direction;
 
     var player = sprite.objects.getValue(app.player_id);
@@ -212,6 +224,7 @@ fn updateSprites(
     for (pipeline_children.items) |sprite_id| {
         if (!sprite.objects.is(sprite_id)) continue;
         if (sprite_id == app.player_id) continue; // don't rotate the player
+
         var s = sprite.objects.getValue(sprite_id);
         const location = s.transform.translation();
         var transform = Mat4x4.ident;
@@ -227,9 +240,9 @@ fn render(
     sprite: *gfx.Sprite,
     sprite_mod: mach.Mod(gfx.Sprite),
     app: *App,
-    delta_time: f32,
 ) void {
     const label = @tagName(mach_module) ++ ".render";
+    const delta_time = app.delta_time;
     const window = core.windows.getValue(app.window);
 
     // Grab the back buffer of the swapchain
@@ -242,15 +255,14 @@ fn render(
     defer encoder.release();
 
     // Begin render pass
-    const color_attachments = [_]gpu.RenderPassColorAttachment{.{
-        .view = back_buffer_view,
-        .clear_value = bg_color,
-        .load_op = .clear,
-        .store_op = .store,
-    }};
     const render_pass = encoder.beginRenderPass(&gpu.RenderPassDescriptor.init(.{
-        .label = label,
-        .color_attachments = &color_attachments,
+        .label = label, //
+        .color_attachments = &[_]gpu.RenderPassColorAttachment{.{
+            .view = back_buffer_view,
+            .clear_value = bg_color,
+            .load_op = .clear,
+            .store_op = .store,
+        }},
     }));
 
     // Render sprites
