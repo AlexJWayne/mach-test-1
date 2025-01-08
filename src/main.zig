@@ -1,11 +1,13 @@
 const std = @import("std");
+
 const mach = @import("mach");
 
 // The global list of Mach modules registered for use in our application.
 pub const Modules = mach.Modules(.{
-    mach.Core, //
+    mach.Core,
     mach.gfx.Sprite,
     @import("App.zig"),
+    @import("Player.zig"),
 });
 
 pub fn main() !void {

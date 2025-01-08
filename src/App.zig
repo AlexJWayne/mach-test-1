@@ -1,35 +1,52 @@
 const std = @import("std");
-const zigimg = @import("zigimg");
+
 const assets = @import("assets");
 const mach = @import("mach");
-const utils = @import("utils.zig");
-const gpu = mach.gpu;
 const gfx = mach.gfx;
 const math = mach.math;
-
 const vec2 = math.vec2;
 const vec3 = math.vec3;
 const Vec2 = math.Vec2;
 const Vec3 = math.Vec3;
 const Mat3x3 = math.Mat3x3;
 const Mat4x4 = math.Mat4x4;
+const gpu = mach.gpu;
+const zigimg = @import("zigimg");
+
+const Player = @import("Player.zig");
+const utils = @import("utils.zig");
 
 const App = @This();
 
 pub const mach_module = .app;
 
 pub const mach_systems = .{
-    .main, //
+    .main,
     .init,
     .tick,
+    .setDeltaTime,
+    .handleEvents,
     .updatePlayer,
+    .updateSprites,
+    .spawnSprites,
+    .render,
     .deinit,
 };
 
 pub const main = mach.schedule(.{
     .{ mach.Core, .init },
     .{ App, .init },
+    .{ Player, .init },
     .{ mach.Core, .main },
+});
+
+pub const tick = mach.schedule(.{
+    .{ App, .setDeltaTime },
+    .{ App, .handleEvents },
+    .{ App, .spawnSprites },
+    .{ App, .updatePlayer },
+    .{ App, .updateSprites },
+    .{ App, .render },
 });
 
 allocator: std.mem.Allocator,
@@ -58,16 +75,11 @@ pub fn init(
     core.on_tick = app_mod.id.tick;
     core.on_exit = app_mod.id.deinit;
 
-    const window = try core.windows.new(.{
-        .title = "gfx.Sprite",
-    });
-
-    // TODO(allocator): find a better way to get an allocator here
-    const allocator = std.heap.c_allocator;
-
     app.* = .{
-        .allocator = allocator,
-        .window = window,
+        .allocator = std.heap.c_allocator,
+        .window = try core.windows.new(.{
+            .title = "gfx.Sprite",
+        }),
         .timer = try mach.time.Timer.start(),
         .spawn_timer = try mach.time.Timer.start(),
         .fps_timer = try mach.time.Timer.start(),
@@ -79,59 +91,48 @@ pub fn init(
 fn setupPipeline(
     core: *mach.Core,
     app: *App,
+    player: *Player,
     sprite: *gfx.Sprite,
     window_id: mach.ObjectID,
 ) !void {
+    _ = player; // autofix
     const window = core.windows.getValue(window_id);
 
     // Create a sprite rendering pipeline
     app.pipeline_id = try sprite.pipelines.new(.{
         .window = window_id,
         .render_pass = undefined,
-        .texture = try utils.loadTexture(window.device, window.queue, app.allocator, @embedFile("./keyboard_x.png")),
+        .texture = try utils.loadTexture(window.device, window.queue, app.allocator, @embedFile("./keyboard_arrow_up.png")),
     });
 
     // Create our player sprite
     app.player_id = try sprite.objects.new(.{
-        .transform = Mat4x4.translate(vec3(-0.02, 0, 0)),
-        .size = vec2(32, 32),
+        .transform = Mat4x4.translate(vec3(0, 0, 0)),
+        .size = vec2(64, 64),
         .uv_transform = Mat3x3.translate(vec2(0, 0)),
     });
+
     // Attach the sprite to our sprite rendering pipeline.
     try sprite.pipelines.setParent(app.player_id, app.pipeline_id);
 }
 
-pub fn tick(
-    core: *mach.Core,
+pub fn setDeltaTime(
     app: *App,
-    app_mod: mach.Mod(App),
-    sprite: *gfx.Sprite,
-    sprite_mod: mach.Mod(gfx.Sprite),
-) !void {
+) void {
     app.delta_time = app.timer.lap();
-
-    // TODO: These should be systems?
-    try handleEvents(core, app, sprite);
-
-    try spawnSprites(app, sprite);
-    // Pass control to our App.zig module.
-    app_mod.run(.updatePlayer);
-    // try updatePlayer(app, sprite);
-    try updateSprites(app, sprite);
-
-    render(core, sprite, sprite_mod, app);
 }
 
-fn handleEvents(
+pub fn handleEvents(
     core: *mach.Core,
     app: *App,
+    player: *Player,
     sprite: *gfx.Sprite,
 ) !void {
     while (core.nextEvent()) |event| {
         switch (event) {
             .key_press => handleKeyInput(app, event),
             .key_release => handleKeyInput(app, event),
-            .window_open => |ev| try setupPipeline(core, app, sprite, ev.window_id),
+            .window_open => |ev| try setupPipeline(core, app, player, sprite, ev.window_id),
             .close => core.exit(),
             else => {},
         }
@@ -188,7 +189,7 @@ pub fn updatePlayer(
     sprite.objects.set(app.player_id, .transform, Mat4x4.translate(player_pos));
 }
 
-fn spawnSprites(
+pub fn spawnSprites(
     app: *App,
     sprite: *gfx.Sprite,
 ) !void {
@@ -214,7 +215,7 @@ fn spawnSprites(
     }
 }
 
-fn updateSprites(
+pub fn updateSprites(
     app: *App,
     sprite: *gfx.Sprite,
 ) !void {
@@ -235,7 +236,7 @@ fn updateSprites(
     }
 }
 
-fn render(
+pub fn render(
     core: *mach.Core,
     sprite: *gfx.Sprite,
     sprite_mod: mach.Mod(gfx.Sprite),

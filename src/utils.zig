@@ -1,7 +1,8 @@
 const std = @import("std");
-const zigimg = @import("zigimg");
+
 const mach = @import("mach");
 const gpu = mach.gpu;
+const zigimg = @import("zigimg");
 
 pub fn loadTexture(device: *gpu.Device, queue: *gpu.Queue, allocator: std.mem.Allocator, buffer: []const u8) !*gpu.Texture {
     // Load the image from memory
