@@ -91,11 +91,9 @@ pub fn init(
 fn setupPipeline(
     core: *mach.Core,
     app: *App,
-    player: *Player,
     sprite: *gfx.Sprite,
     window_id: mach.ObjectID,
 ) !void {
-    _ = player; // autofix
     const window = core.windows.getValue(window_id);
 
     // Create a sprite rendering pipeline
@@ -125,14 +123,13 @@ pub fn setDeltaTime(
 pub fn handleEvents(
     core: *mach.Core,
     app: *App,
-    player: *Player,
     sprite: *gfx.Sprite,
 ) !void {
     while (core.nextEvent()) |event| {
         switch (event) {
             .key_press => handleKeyInput(app, event),
             .key_release => handleKeyInput(app, event),
-            .window_open => |ev| try setupPipeline(core, app, player, sprite, ev.window_id),
+            .window_open => |ev| try setupPipeline(core, app, sprite, ev.window_id),
             .close => core.exit(),
             else => {},
         }
